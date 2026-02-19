@@ -10,11 +10,15 @@
   </a>
 </p>
 
-**ESP-PPB** is the first wireless, battery-powered, phase-coherent CSI synchronization platform for ESP32. It phase-locks any number of nodes over the air using Wi-Fi FTM and a VCTCXO disciplined by dual DACs, achieving sub-PPB clock alignment and near-phase-coherent CSI captures — no cables, no wired backhaul, no tethered power.
+**ESP-PPB** is the first wireless, battery-powered, phase-coherent CSI synchronization platform for ESP32.
+
+[CSI (Channel State Information)](https://en.wikipedia.org/wiki/Channel_state_information) describes how a Wi-Fi signal propagates between transmitter and receiver, including amplitude and phase per subcarrier. Phase-coherent CSI across multiple nodes enables techniques like angle-of-arrival estimation and distributed beamforming.
+
+ESP-PPB phase-locks any number of nodes over the air using Wi-Fi FTM and a VCTCXO disciplined by dual DACs. It achieves sub-PPB clock alignment and near-phase-coherent CSI captures: no cables, no wired backhaul, no tethered power.
 
 Drop nodes wherever you need them, power them on, and collect synchronized CSI data on your laptop over Wi-Fi.
 
-> **Looking for hardware?** A Crowd Supply campaign is planned. In the meantime, early boards are available directly — see [Get Hardware](#get-hardware) below.
+> **Looking for hardware?** A Crowd Supply campaign is planned. In the meantime, early boards are available directly, see [Get Hardware](#get-hardware) below.
 
 ---
 
@@ -32,17 +36,17 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 | **Actively maintained**                | Yes                          | Yes                  | No (discontinued ~2011) | Limited                   |
 | **Cost per node**                      | ~$50-80                      | Not available        | Discontinued            | ~$90-145 (router)         |
 
-**In short:** ESP-PPB is the only solution that is simultaneously wireless, battery-powered, phase-synchronized, and remotely observable — with no upper limit on the number of synced nodes.
+**In short:** ESP-PPB is the only solution that is simultaneously wireless, battery-powered, phase-synchronized, and remotely observable, with no upper limit on the number of synced nodes.
 
 ---
 
 ## What You Can Do With It
 
-- **Angle-of-arrival estimation** — place nodes around a room, triangulate sources
+- **Angle-of-arrival estimation**: place nodes around a room, triangulate sources
 - **MUSIC / ESPRIT** and other super-resolution direction-finding algorithms
-- **Multi-node phase-coherent CSI capture** — distributed virtual array
-- **Distributed wireless sensing** — synchronized, cable-free, battery-powered nodes
-- **Indoor localization research** — deploy and relocate freely without cable constraints
+- **Multi-node phase-coherent CSI capture**: distributed virtual array
+- **Distributed wireless sensing**: synchronized, cable-free, battery-powered nodes
+- **Indoor localization research**: deploy and relocate freely without cable constraints
 
 ---
 
@@ -87,7 +91,17 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 | Practical single-frame accuracy | ~5 degrees (without averaging)          |
 | Time to 10 PPB lock             | Seconds                                 |
 | Time to < 1 PPB lock            | Minutes (thermal stabilization needed)  |
-| Battery life                    | hours to days (depends on battery size) |
+| Battery life                    | ~8 h with 1000 mAh battery (120 mA draw) |
+
+---
+
+## Results
+
+Synchronized CSI data collected from multiple ESP-PPB nodes. Each node broadcasts its CSI frames over Wi-Fi; the listener collects and logs them for post-processing.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! TODO: Add example output (serial log snippet, CSV, or plot here)  !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ---
 
@@ -102,13 +116,13 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
   </a>
 </p>
 
-- **Compact** — under 4 cm x 4 cm, 5+ PCB revisions refined
+- **Compact**: under 4 cm x 4 cm, 5+ PCB revisions refined
 - **ESP32-C3** with custom RF antenna tuning (2.4 GHz)
 - **VCTCXO** (voltage-controlled temperature-compensated crystal oscillator)
-- **Dual DAC** — coarse + fine control for oscillator discipline
-- **OLED display** — live accuracy and status readout
+- **Dual DAC**: coarse + fine control for oscillator discipline
+- **OLED display**: live accuracy and status readout
 - **LiPo battery charger** (USB-C, battery not included)
-- **6 exposed GPIOs** — connect your own sensors, actuators, or peripherals
+- **6 exposed GPIOs**: connect your own sensors, actuators, or peripherals (see [Exposed IO](schematics/README.md))
 
 Full schematics, PCB layout, and 3D board model are in [`schematics/`](schematics/).
 
@@ -126,18 +140,33 @@ Nodes auto-detect their role based on MAC address (configurable in firmware). Po
 
 ## Quick Start
 
-### Prerequisites
+### Build and Flash
 
-- [ESP-IDF](https://docs.espressif.com/projects/esp-idf/) v5.x or v6.0
-- USB-C cable for flashing
+**Hardware:**
 
-### Build and flash
+- At least 3 ESP-PPB boards
+- Optional: a LiPo battery (PH2.0 - 2P plug) :warning: Watch the polarity. The `bat+` label on the board marks the positive side of the battery. This battery is compatible, for example: [AliExpress option](https://de.aliexpress.com/item/1005008790388830.html?spm=a2g0o.order_list.order_list_main.37.40f35e5b8iBkc5&gatewayAdapt=glo2deu)
+- Make sure the switch on your ESP-PPB is set to `battery` or `5V`, depending on whether you are using a battery
+
+**Software:**
+
+- [Espressif ESP32 tutorial](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html)
+
+**Flash for the first time:**
 
 ```bash
 . $IDF_PATH/export.sh
 idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
+
+When the device boots, note its STA MAC address:
+
+```
+2026-02-20 08:26:31 I (786) [./main/helper.c:74] [MIDDLE]: STA MAC is {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+```
+
+Edit [`main/helper.h`](main/helper.h) and set `MAC_STA_RIGHT` / `MAC_STA_TOP` / `MAC_STA_MIDDLE` / ... depending on your need (see the [Roles](#roles) section below).
 
 ### Key files
 
@@ -154,7 +183,7 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 ## Get Hardware
 
-**Early boards are available now.** A larger batch and a Crowd Supply campaign are planned — early interest helps reserve boards at lower cost.
+**Early boards are available now.** A larger batch and a Crowd Supply campaign are planned. Early interest helps reserve boards at lower cost.
 
 Contact: **`jonathan.muller12@gmail.com`** or [open a discussion](../../discussions).
 
@@ -162,31 +191,16 @@ The design files are in [`schematics/`](schematics/) if you want to build your o
 
 ---
 
-<!-- Uncomment when video is ready
-## Demo
-
-[![ESP-PPB Demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
--->
-
-## Licensing
-
-| Component             | License                             |
-|-----------------------|-------------------------------------|
-| Firmware / software   | [GPL-3.0](LICENSE)                  |
-| Hardware design files | [CC-BY-NC-SA-4.0](HARDWARE_LICENSE) |
-
----
-
 ## Get Involved
 
-> **This project thrives on early feedback.** Whether you're a researcher, engineer, or hobbyist — your input shapes the next revision.
+> **This project thrives on early feedback.** Whether you're a researcher, engineer, or hobbyist, your input shapes the next revision.
 
-| # | How to contribute |
-|---|---|
-| 1 | **Try it** — request a board and test in your environment |
-| 2 | **Report** — share results, bugs, or calibration observations |
-| 3 | **Suggest** — propose new use cases or features |
-| 4 | **Collaborate** — co-author research, co-develop algorithms |
+| # | How to contribute                                             |
+|---|---------------------------------------------------------------|
+| 1 | **Try it**: request a board and test in your environment     |
+| 2 | **Report**: share results, bugs, or calibration observations |
+| 3 | **Suggest**: propose new use cases or features               |
+| 4 | **Collaborate**: co-author research, co-develop algorithms   |
 
 [Open a discussion](../../discussions) or email **`jonathan.muller12@gmail.com`**.
 
@@ -207,66 +221,64 @@ The design files are in [`schematics/`](schematics/) if you want to build your o
 - [ ] Python post-processing examples (AoA, MUSIC)
 - [ ] Extended documentation and tutorials
 
----
+## FAQ
 
-## Cite
+<details>
+<summary>Do I need a special access point?</summary>
 
-If you use ESP-PPB in academic work, please cite:
-
-```bibtex
-@misc{muller2025espppb,
-  author       = {Jonathan Muller},
-  title        = {{ESP-PPB}: Wireless Battery-Powered Phase-Coherent {CSI} Synchronization Platform},
-  year         = {2025},
-  howpublished = {\url{https://github.com/jonathanmuller/esp-ppb}},
-}
-```
-
----
-
-<details open>
-<summary><strong>FAQ</strong></summary>
-
-**Do I need a special access point?**
 An ESP-PPB node as AP gives the best results (built-in FTM sync). A regular Wi-Fi router also works, but you'll need an external ESP32 (doesn't have to be ESP-PPB) to send a sync frame alongside each CSI frame.
 
-**What's required to collect data?**
+</details>
+
+<details>
+<summary>What's required to collect data?</summary>
+
 Any Wi-Fi listener can receive the broadcast data. A reference ESP32 logger connected to a PC is provided for convenience.
 
-**How many nodes can I synchronize?**
+</details>
+
+<details>
+<summary>How many nodes can I synchronize?</summary>
+
 There is no hard limit. The system has been tested with more than 5 nodes. Add as many slaves as you need.
 
-**What ESP-IDF version do I need?**
+</details>
+
+<details>
+<summary>What ESP-IDF version do I need?</summary>
+
 ESP-IDF v5.x works. v6.0 is also supported.
 
 </details>
 
 ---
 
-<details open>
-<summary><strong>Code Architecture</strong></summary>
+## Code Architecture
+
+<details>
+<summary>Details</summary>
 
 Each node selects its role at boot based on its MAC address (`main/main.c`). The role determines which callbacks and loop function are registered.
 
 ### Roles
 
-| Role | MAC match | Wi-Fi mode | Description |
-|---|---|---|---|
-| **Slave (FTM)** | `LEFT`, `RIGHT`, `TOP`, `BOTTOM` | Station | Syncs to master via FTM, captures and broadcasts CSI |
-| **Master (AP)** | `MIDDLE` | Access Point | Runs FTM responder, responds to CSI pings |
-| **Default client** | Any other MAC | Station | Receives and logs broadcast data from slaves (listener / PC bridge) |
+| Role               | MAC match                        | Wi-Fi mode   | Description                                                         |
+|--------------------|----------------------------------|--------------|---------------------------------------------------------------------|
+| **Slave (FTM)**    | `LEFT`, `RIGHT`, `TOP`, `BOTTOM` | Station      | Syncs to master via FTM, captures and broadcasts CSI                |
+| **Master (AP)**    | `MIDDLE`                         | Access Point | Runs FTM responder, responds to CSI pings                           |
+| **Default client** | Any other MAC                    | Station      | Receives and logs broadcast data from slaves (listener / PC bridge) |
 
 ### Callbacks and main loops
 
-| Function | Registered as | Role | Trigger | What it does |
-|---|---|---|---|---|
-| `promi_ftm_cb` | Promiscuous RX callback | Slave | Every received management frame | Extracts nanosecond RX timestamps from FTM frames for clock drift estimation |
-| `csi_send_summary` | CSI RX callback | Slave | Every CSI frame received | Packages CSI + timing data and broadcasts it over Wi-Fi |
-| `infinite_ftm` | Main loop | Slave | Runs continuously | Initiates FTM exchanges with the AP, estimates PPB drift, corrects VCTCXO via dual DACs |
-| `csi_ping_pong` | CSI RX callback | Master | CSI frame from a slave | Immediately responds with a CSI frame back (anchors phase for the slave) |
-| `print_now_recv` | ESP-NOW RX callback | Default | ESP-NOW packet received | Logs received data (used by the listener / PC bridge) |
-| `simple_send_cb` | ESP-NOW TX callback | Default | After sending an ESP-NOW packet | Logs TX rate for debugging |
-| `infinite_send` | Main loop | Default | Runs continuously | Sends ESP-NOW packets in a loop (test / relay mode) |
+| Function           | Registered as           | Role    | Trigger                         | What it does                                                                            |
+|--------------------|-------------------------|---------|---------------------------------|-----------------------------------------------------------------------------------------|
+| `promi_ftm_cb`     | Promiscuous RX callback | Slave   | Every received management frame | Extracts nanosecond RX timestamps from FTM frames for clock drift estimation            |
+| `csi_send_summary` | CSI RX callback         | Slave   | Every CSI frame received        | Packages CSI + timing data and broadcasts it over Wi-Fi                                 |
+| `infinite_ftm`     | Main loop               | Slave   | Runs continuously               | Initiates FTM exchanges with the AP, estimates PPB drift, corrects VCTCXO via dual DACs |
+| `csi_ping_pong`    | CSI RX callback         | Master  | CSI frame from a slave          | Immediately responds with a CSI frame back (anchors phase for the slave)                |
+| `print_now_recv`   | ESP-NOW RX callback     | Default | ESP-NOW packet received         | Logs received data (used by the listener / PC bridge)                                   |
+| `simple_send_cb`   | ESP-NOW TX callback     | Default | After sending an ESP-NOW packet | Logs TX rate for debugging                                                              |
+| `infinite_send`    | Main loop               | Default | Runs continuously               | Sends ESP-NOW packets in a loop (test / relay mode)                                     |
 
 ### Boot sequence (`app_main`)
 
@@ -278,6 +290,40 @@ Each node selects its role at boot based on its MAC address (`main/main.c`). The
 5. Init Wi-Fi (AP or Station)
 6. Register callbacks (promiscuous, CSI, ESP-NOW)
 7. Enter main loop (if any)
+```
+
+</details>
+
+---
+
+## Licensing
+
+<details>
+<summary>Details</summary>
+
+| Component             | License                             |
+|-----------------------|-------------------------------------|
+| Firmware / software   | [GPL-3.0](LICENSE)                  |
+| Hardware design files | [CC-BY-NC-SA-4.0](HARDWARE_LICENSE) |
+
+</details>
+
+---
+
+## Cite
+
+<details>
+<summary>Details</summary>
+
+If you use ESP-PPB in academic work, please cite:
+
+```bibtex
+@misc{muller2025espppb,
+  author       = {Jonathan Muller},
+  title        = {{ESP-PPB}: Wireless Battery-Powered Phase-Coherent {CSI} Synchronization Platform},
+  year         = {2025},
+  howpublished = {\url{https://github.com/jonathanmuller/esp-ppb}},
+}
 ```
 
 </details>
