@@ -1,0 +1,80 @@
+﻿#ifndef I2C_HELPER_H
+#define I2C_HELPER_H
+
+#include <stdint.h>
+#include "esp_err.h"
+#include "driver/gpio.h"
+
+// I2C configuration for this board
+// Use I2C controller 0
+#define I2C_HELPER_PORT      0
+#define I2C_HELPER_SDA_PIN   GPIO_NUM_6   // MTCK
+#define I2C_HELPER_SCL_PIN   GPIO_NUM_7   // MTDO
+#define I2C_HELPER_POWER_PIN GPIO_NUM_10
+#define I2C_HELPER_FREQ_HZ   100000
+
+// Known devices on the bus
+//  - X042-7240TSWPG01-H16: SSD1315-based OLED at 0x3C / 0x3D
+//  - MCP4725A0T-E/CH: 12-bit DAC at 0x60 / 0x61
+//  - Unknown accel at 0x18 with WHO_AM_I = 0x11
+
+// OLED (SSD1315)
+#define I2C_HELPER_OLED_ADDR_PRIMARY   0x3C
+#define I2C_HELPER_OLED_ADDR_SECONDARY 0x3D
+
+// MCP4725 DAC (A0 variant)
+#define I2C_HELPER_MCP4725_ADDR0 0x60
+#define I2C_HELPER_MCP4725_ADDR1 0x61
+#define I2C_HELPER_MCP4725_VREF_MV 3300
+
+// Accelerometer (likely IIS3DHHC-compatible)
+#define I2C_HELPER_ACCEL_ADDR_LOW   0x18
+#define I2C_HELPER_ACCEL_ADDR_HIGH  0x19
+#define I2C_HELPER_ACCEL_REG_WHO_AM_I 0x0F
+#define I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED 0x11
+
+// IIS3DHHC / LIS2DH-style data path registers
+#define I2C_HELPER_ACCEL_REG_CTRL1    0x20
+#define I2C_HELPER_ACCEL_REG_OUT_X_L  0x28
+#define I2C_HELPER_ACCEL_REG_OUT_X_H  0x29
+#define I2C_HELPER_ACCEL_REG_OUT_Y_L  0x2A
+#define I2C_HELPER_ACCEL_REG_OUT_Y_H  0x2B
+#define I2C_HELPER_ACCEL_REG_OUT_Z_L  0x2C
+#define I2C_HELPER_ACCEL_REG_OUT_Z_H  0x2D
+
+// High-level helpers
+void i2c_helper_scan_devices(void);
+
+void i2c_helper_test_oled(void);
+
+// Show a signed 64-bit integer on the OLED (SSD1315 72x40)
+esp_err_t i2c_helper_oled_show_int64(int64_t value);
+
+void i2c_helper_test_mcp4725(void);
+
+void i2c_helper_test_accel(void);
+
+// Set MCP4725 raw DAC code (0..4095, 1 LSB steps)
+esp_err_t i2c_helper_mcp4725_set_code(uint16_t code);
+
+// Set MCP4725 output voltage in volts (0.0 .. Vref, default 3.3 V)
+esp_err_t i2c_helper_mcp4725_set_voltage(float volts);
+// Set MCP4725 output voltage in millivolts (0 .. Vref_mV)
+esp_err_t i2c_helper_mcp4725_set_voltage_mv(uint32_t millivolts);
+
+
+// Convenience entry point that runs all the above tests
+void i2c_helper_test_all(void);
+
+int read_gpio_input(gpio_num_t gpio_num);
+
+// Generic small helpers (optional to use)
+esp_err_t i2c_helper_read_reg(uint8_t addr, uint8_t reg, uint8_t *data);
+
+esp_err_t i2c_helper_write_bytes(uint8_t addr, const uint8_t *data, size_t len);
+
+// Optional: read one raw XYZ sample from the accelerometer and log it
+void i2c_helper_log_accel_xyz(void);
+
+
+#endif // I2C_HELPER_H

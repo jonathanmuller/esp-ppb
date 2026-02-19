@@ -1,0 +1,13 @@
+/build/
+/cmake-build-debug/
+/log/
+/partition_table/
+/.vscode/
+/.idea/
+*.log
+build/log/
+build/log/*
+
+# ESP-IDF specific
+dependencies.lock
+managed_components/

@@ -1,0 +1,14 @@
+#ifndef CONSTANT_H
+#define CONSTANT_H
+
+
+#define MAIN_CHANNEL 6
+
+#define AP_SENDER_SSID "DEBUG_SENDER"
+
+#define AP_TAG_PASSWORD "debug123"
+
+#define CSI_PAYLOAD_ESP_NOW_OFFSET 15
+
+
+#endif // CONSTANT_H

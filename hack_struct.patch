@@ -1,0 +1,110 @@
+From 3d17efc00a0dcb1059722038544294e8ef322ead Mon Sep 17 00:00:00 2001
+From: Nachiket Kukade <nachiket.kukade@espressif.com>
+Date: Tue, 10 Sep 2024 14:24:52 +0530
+Subject: [PATCH] fix(wifi): Expose Rx pkt timstamp related calculations
+
+Expose special counters in wifi_pkt_rx_ctrl_t that allows timestamping of
+WiFi Rx packets up to nano-second resolution
+
+Closes https://github.com/espressif/esp-idf/issues/9843
+---
+ .../esp_wifi/include/esp_wifi_he_types.h      |  8 +++---
+ .../include/local/esp_wifi_types_native.h     | 28 +++++++++++++++++--
+ 2 files changed, 30 insertions(+), 6 deletions(-)
+
+diff --git a/components/esp_wifi/include/esp_wifi_he_types.h b/components/esp_wifi/include/esp_wifi_he_types.h
+index e2fe9c9f755..500d67ba65c 100644
+--- a/components/esp_wifi/include/esp_wifi_he_types.h
++++ b/components/esp_wifi/include/esp_wifi_he_types.h
+@@ -186,7 +186,7 @@ typedef struct {
+     uint32_t he_siga1;                            /**< HE-SIGA1 or HT-SIG or VHT-SIG */
+     unsigned rxend_state: 8;                      /**< reception state, 0: successful, others: failure */
+     uint16_t he_siga2;                            /**< HE-SIGA2 */
+-    unsigned : 7;                                 /**< reserved */
++    unsigned rxstart_time_cyc: 7;                 /**< Rx timestamp related special counter */
+     unsigned is_group: 1;                         /**< indicate whether the reception is a group addressed frame */
+     unsigned timestamp: 32;                       /**< timestamp. The local time when this packet is received. It is precise only if modem sleep or light sleep is not enabled. unit: microsecond */
+     unsigned : 15;                                /**< reserved */
+@@ -213,7 +213,7 @@ typedef struct {
+     unsigned : 2;                                 /**< reserved */
+     unsigned : 4;                                 /**< reserved */
+     unsigned : 2;                                 /**< reserved */
+-    unsigned : 11;                                /**< reserved */
++    unsigned rxstart_time_cyc_dec: 11;            /**< Rx timestamp related special counter */
+     unsigned : 1;                                 /**< reserved */
+     unsigned : 12;                                /**< reserved */
+     unsigned : 12;                                /**< reserved */
+@@ -256,7 +256,7 @@ typedef struct {
+     uint32_t he_siga1;                            /**< HE-SIGA1 or HT-SIG */
+     unsigned rxend_state : 8;                     /**< reception state, 0: successful, others: failure */
+     uint16_t he_siga2;                            /**< HE-SIGA2 */
+-    unsigned : 7;                                 /**< reserved */
++    unsigned rxstart_time_cyc: 7;                 /**< Rx timestamp related special counter */
+     unsigned is_group : 1;                        /**< indicate whether the reception is a group addressed frame */
+     unsigned timestamp : 32;                      /**< timestamp. The local time when this packet is received. It is precise only if modem sleep or light sleep is not enabled. unit: microsecond */
+     unsigned : 15;                                /**< reserved */
+@@ -275,7 +275,7 @@ typedef struct {
+     unsigned rx_channel_estimate_len : 10;        /**< the length of the channel information */
+     unsigned rx_channel_estimate_info_vld : 1;    /**< indicate the channel information is valid */
+     unsigned : 1;                                 /**< reserved */
+-    unsigned : 11;                                /**< reserved */
++    unsigned rxstart_time_cyc_dec: 11;            /**< Rx timestamp related special counter */
+     unsigned : 1;                                 /**< reserved */
+     unsigned : 24;                                /**< reserved */
+     unsigned cur_bb_format : 4;                   /**< the format of the reception frame */
+diff --git a/components/esp_wifi/include/local/esp_wifi_types_native.h b/components/esp_wifi/include/local/esp_wifi_types_native.h
+index 3efc979daad..941bb863b4b 100644
+--- a/components/esp_wifi/include/local/esp_wifi_types_native.h
++++ b/components/esp_wifi/include/local/esp_wifi_types_native.h
+@@ -60,7 +60,8 @@ typedef struct {
+     unsigned ampdu_cnt: 8;        /**< the number of subframes aggregated in AMPDU */
+     unsigned channel: 4;          /**< primary channel on which this packet is received */
+     unsigned secondary_channel: 4; /**< secondary channel on which this packet is received. 0: none; 1: above; 2: below */
+-    unsigned : 8;                 /**< reserved */
++    unsigned rxstart_time_cyc: 7; /**< Rx timestamp related special counter */
++    unsigned : 1;                 /**< reserved */
+     unsigned timestamp: 32;       /**< timestamp. The local time when this packet is received. It is precise only if modem sleep or light sleep is not enabled. unit: microsecond */
+     unsigned : 32;                /**< reserved */
+ #if CONFIG_IDF_TARGET_ESP32S2
+@@ -70,7 +71,8 @@ typedef struct {
+     unsigned : 24;                /**< reserved */
+     unsigned : 32;                /**< reserved */
+ #endif
+-    unsigned : 31;                /**< reserved */
++    unsigned : 20;                /**< reserved */
++    unsigned rxstart_time_cyc_dec: 11;/**< Rx timestamp related special counter */
+     unsigned ant: 1;              /**< antenna number from which this packet is received. 0: WiFi antenna 0; 1: WiFi antenna 1 */
+ #if CONFIG_IDF_TARGET_ESP32S2
+     signed noise_floor: 8;        /**< noise floor of Radio Frequency Module(RF). unit: dBm*/
+@@ -86,6 +88,28 @@ typedef struct {
+ } wifi_pkt_rx_ctrl_t;
+ #endif
+ 
++/** @brief Macro to check if packet PHY rate is OFDM using wifi_pkt_rx_ctrl_t.
++ */
++#if CONFIG_SOC_WIFI_HE_SUPPORT
++#define WIFI_PKT_RATE_IS_OFDM(_ctrl)     ((_ctrl)->cur_bb_format != RX_BB_FORMAT_11B)
++#else
++#define WIFI_PKT_RATE_IS_OFDM(_ctrl)     (((_ctrl)->sig_mode != 0) || ((_ctrl)->sig_mode == 0 && (_ctrl)->rate >= WIFI_PHY_RATE_48M))
++#endif
++
++/** @brief      Macros to derive packet Rx local timestamp from wifi_pkt_rx_ctrl_t, precise only if packet rate is OFDM
++ *              and modem sleep or light sleep is not enabled.
++  * @attention  wifi_pkt_rx_ctrl_t.timestamp is a H/W latched timestamp after packet reception completes while below macros denote
++  *             the time at which packet reception starts.
++ */
++#if !CONFIG_IDF_TARGET_ESP32
++#define WIFI_PKT_RX_CYCDEC_ADJUST(_ctrl)    ((((_ctrl)->rxstart_time_cyc_dec) >= 1024) ?    \
++                            (2048 - ((_ctrl)->rxstart_time_cyc_dec)) : ((_ctrl)->rxstart_time_cyc_dec))
++#define WIFI_PKT_RX_TIMESTAMP_NSEC(_ctrl)   (((((uint64_t)(_ctrl)->timestamp)) * 1000L)     \
++                            + ((((uint64_t)(_ctrl)->rxstart_time_cyc) * 12500L) / 1000L)    \
++                            + ((((uint64_t)WIFI_PKT_RX_CYCDEC_ADJUST(_ctrl)) * 1562L) / 1000L) - (20800L))
++#define WIFI_PKT_RX_TIMESTAMP_USEC(_ctrl)   (WIFI_PKT_RX_TIMESTAMP_NSEC(_ctrl) / 1000L)
++#endif
++
+ /**
+   * @brief Channel state information(CSI) configuration type
+   *
+-- 
+2.39.3 (Apple Git-146)
+

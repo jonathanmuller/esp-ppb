@@ -1,0 +1,767 @@
+﻿#include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "driver/gpio.h"
+#include "driver/i2c_master.h"
+#include "esp_adc/adc_oneshot.h"
+#include "i2c_helper.h"
+
+#include "helper.h"
+#include "i2c_helper.h"
+
+// Shared I2C master bus handle (new driver API)
+static i2c_master_bus_handle_t s_i2c_bus_handle;
+
+// Simple state for OLED reuse
+static bool s_oled_initialized = false;
+static uint8_t s_oled_addr = 0;
+
+static void i2c_helper_power_on(void) {
+    static bool configured = false;
+    static bool powered_on = false;
+
+    if (!configured) {
+        gpio_config_t pwr_conf = {
+            .pin_bit_mask = 1ULL << I2C_HELPER_POWER_PIN,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE
+        };
+        gpio_config(&pwr_conf);
+        configured = true;
+    }
+
+    if (!powered_on) {
+        gpio_set_level(I2C_HELPER_POWER_PIN, 1);
+        vTaskDelay(pdMS_TO_TICKS(10)); // allow power rail to stabilize once
+        powered_on = true;
+    } else {
+        gpio_set_level(I2C_HELPER_POWER_PIN, 1);
+    }
+}
+
+// Lazily create and configure the I2C master bus using the new API.
+// Safe to call multiple times; the bus is created only once.
+static esp_err_t i2c_helper_master_setup(void) {
+    if (s_i2c_bus_handle) {
+        return ESP_OK;
+    }
+
+    i2c_master_bus_config_t bus_cfg = {
+        .i2c_port = I2C_HELPER_PORT,
+        .sda_io_num = I2C_HELPER_SDA_PIN,
+        .scl_io_num = I2C_HELPER_SCL_PIN,
+        .glitch_ignore_cnt = 7,      // typical value from ESP-IDF docs
+        .intr_priority = 0,          // default interrupt priority
+        .trans_queue_depth = 0,      // default internal queue depth
+    };
+    bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    bus_cfg.flags.enable_internal_pullup = 1; // match old driver pull-up behaviour
+
+    return i2c_new_master_bus(&bus_cfg, &s_i2c_bus_handle);
+}
+
+// Optional teardown; currently we keep the bus for the lifetime of the app.
+// This keeps semantics similar to the old driver while avoiding repeated setup.
+static void i2c_helper_master_teardown(void) {
+    // If you want to release the bus after each test, uncomment below:
+    // if (s_i2c_bus_handle) {
+    //     i2c_del_master_bus(s_i2c_bus_handle);
+    //     s_i2c_bus_handle = NULL;
+    // }
+}
+
+static esp_err_t i2c_helper_write_reg(uint8_t addr, uint8_t reg, uint8_t value) {
+    uint8_t buf[2] = {reg, value};
+    return i2c_helper_write_bytes(addr, buf, sizeof(buf));
+}
+
+esp_err_t i2c_helper_read_reg(uint8_t addr, uint8_t reg, uint8_t *data) {
+    if (!data) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = i2c_helper_master_setup();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = I2C_HELPER_FREQ_HZ,
+        .scl_wait_us = 0,
+    };
+
+    i2c_master_dev_handle_t dev_handle;
+    err = i2c_master_bus_add_device(s_i2c_bus_handle, &dev_cfg, &dev_handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint8_t reg_addr = reg;
+    err = i2c_master_transmit_receive(dev_handle,
+                                      &reg_addr, 1,
+                                      data, 1,
+                                      50 /* ms timeout */);
+
+    esp_err_t rm_err = i2c_master_bus_rm_device(dev_handle);
+    if (err == ESP_OK && rm_err != ESP_OK) {
+        err = rm_err;
+    }
+    return err;
+}
+
+esp_err_t i2c_helper_write_bytes(uint8_t addr, const uint8_t *data, size_t len) {
+    if (!data || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = i2c_helper_master_setup();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = I2C_HELPER_FREQ_HZ,
+        .scl_wait_us = 0,
+    };
+
+    i2c_master_dev_handle_t dev_handle;
+    err = i2c_master_bus_add_device(s_i2c_bus_handle, &dev_cfg, &dev_handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = i2c_master_transmit(dev_handle, data, len, 50 /* ms timeout */);
+
+    esp_err_t rm_err = i2c_master_bus_rm_device(dev_handle);
+    if (err == ESP_OK && rm_err != ESP_OK) {
+        err = rm_err;
+    }
+
+    return err;
+}
+
+void i2c_helper_scan_devices(void) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "I2C: failed to initialize master");
+        return;
+    }
+
+    ESP_LOGI(GET_AUTO_TAG(), "I2C: scanning bus on SDA=%d, SCL=%d",
+             I2C_HELPER_SDA_PIN, I2C_HELPER_SCL_PIN);
+
+    for (uint8_t addr = 1; addr < 0x7F; addr++) {
+        esp_err_t ret = i2c_master_probe(s_i2c_bus_handle, addr, 50 /* ms timeout */);
+        if (ret == ESP_OK) {
+            ESP_LOGI(GET_AUTO_TAG(), "I2C: found device at 0x%02X", addr);
+        }
+    }
+
+    i2c_helper_master_teardown();
+}
+
+// ---- Per-device helpers ----------------------------------------------------
+
+static esp_err_t oled_ssd1315_send_command(uint8_t addr, uint8_t command) {
+    uint8_t buf[2];
+    buf[0] = 0x00; // Control byte: Co = 0, D/C# = 0 -> single command
+    buf[1] = command; // Command itself
+
+    return i2c_helper_write_bytes(addr, buf, sizeof(buf));
+}
+
+#define OLED72_WIDTH  72
+#define OLED72_HEIGHT 40
+#define OLED72_PAGES  (OLED72_HEIGHT / 8)
+#define OLED72_COL_OFFSET 32
+
+static uint8_t oled72_buffer[OLED72_WIDTH * OLED72_PAGES];
+
+static void oled72_draw_char_digit(int x, int y, char c);
+
+static esp_err_t oled_ssd1315_init_72x40(uint8_t addr) {
+    const uint8_t init_cmds[] = {
+        0xAE, // display off
+        0xD5, 0x80, // display clock divide ratio/oscillator frequency
+        0xA8, 0x27, // multiplex ratio 1/40 duty (0x27)
+        0xD3, 0x00, // display offset = 0
+        0x40, // start line = 0
+        0x8D, 0x14, // charge pump enable
+        0x20, 0x02, // page addressing mode
+        0xA1, // segment re-map (mirror horizontally)
+        0xC8, // COM scan direction remap
+        0xDA, 0x12, // COM pins hardware configuration
+        0xAD, 0x30, // internal IREF setting
+        0x81, 0x2F, // contrast
+        0xD9, 0x22, // pre-charge period
+        0xDB, 0x20, // vcomh deselect level
+        0xA4, // resume to RAM content display
+        0xA6, // normal (non-inverted) display
+    };
+
+    for (size_t i = 0; i < sizeof(init_cmds); ++i) {
+        esp_err_t ret = oled_ssd1315_send_command(addr, init_cmds[i]);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+    }
+
+    return oled_ssd1315_send_command(addr, 0xAF); // display ON
+}
+
+static void oled72_buf_clear(bool on) {
+    memset(oled72_buffer, on ? 0xFF : 0x00, sizeof(oled72_buffer));
+}
+
+static void oled72_buf_set_pixel(int x, int y, bool on) {
+    if (x < 0 || x >= OLED72_WIDTH || y < 0 || y >= OLED72_HEIGHT) {
+        return;
+    }
+    int page = y / 8;
+    int bit = y % 8;
+    size_t idx = (size_t) page * OLED72_WIDTH + (size_t) x;
+    uint8_t mask = (uint8_t) (1u << bit);
+    if (on) {
+        oled72_buffer[idx] |= mask;
+    } else {
+        oled72_buffer[idx] &= (uint8_t) ~mask;
+    }
+}
+
+static void oled72_draw_glyph_5x7(int x, int y, const uint8_t pattern[7]) {
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            bool on = (pattern[row] >> (4 - col)) & 0x01;
+            if (on) {
+                oled72_buf_set_pixel(x + col, y + row, true);
+            }
+        }
+    }
+}
+
+static void oled72_draw_char_A(int x, int y) {
+    // 5x7 "A" glyph
+    static const uint8_t pattern[7] = {
+        0b01110,
+        0b10001,
+        0b10001,
+        0b11111,
+        0b10001,
+        0b10001,
+        0b10001,
+    };
+    oled72_draw_glyph_5x7(x, y, pattern);
+}
+
+static void oled72_draw_string_AAA(int x, int y) {
+    oled72_draw_char_A(x, y);
+    oled72_draw_char_A(x + 6, y);
+    oled72_draw_char_A(x + 12, y);
+}
+
+static void oled72_draw_char_B(int x, int y) {
+    // 5x7 "B" glyph
+    static const uint8_t pattern[7] = {
+        0b11110,
+        0b10001,
+        0b10001,
+        0b11110,
+        0b10001,
+        0b10001,
+        0b11110,
+    };
+    oled72_draw_glyph_5x7(x, y, pattern);
+}
+
+static void oled72_draw_string_BBB(int x, int y) {
+    oled72_draw_char_B(x, y);
+    oled72_draw_char_B(x + 6, y);
+    oled72_draw_char_B(x + 12, y);
+}
+
+static void oled72_draw_char_digit(int x, int y, char c) {
+    // 5x7 numeric glyphs 0-9 and '-' (index 10)
+    static const uint8_t font[11][7] = {
+        // '0'
+        {0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110},
+        // '1'
+        {0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110},
+        // '2'
+        {0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111},
+        // '3'
+        {0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110},
+        // '4'
+        {0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010},
+        // '5'
+        {0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110},
+        // '6'
+        {0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110},
+        // '7'
+        {0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000},
+        // '8'
+        {0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110},
+        // '9'
+        {0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100},
+        // '-'
+        {0b00000, 0b00000, 0b00000, 0b01110, 0b00000, 0b00000, 0b00000},
+    };
+
+    int idx;
+    if (c >= '0' && c <= '9') {
+        idx = c - '0';
+    } else if (c == '-') {
+        idx = 10;
+    } else {
+        return; // unsupported character
+    }
+
+    oled72_draw_glyph_5x7(x, y, font[idx]);
+}
+
+static void oled72_draw_number_string(int x, int y, const char *str) {
+    int cursor_x = x;
+    for (const char *p = str; *p != '\0'; ++p) {
+        if (cursor_x + 5 >= OLED72_WIDTH) {
+            break; // no more room
+        }
+        oled72_draw_char_digit(cursor_x, y, *p);
+        cursor_x += 6; // 5px glyph + 1px spacing
+    }
+}
+
+static esp_err_t oled72_flush(uint8_t addr) {
+    for (uint8_t page = 0; page < OLED72_PAGES; ++page) {
+        if (oled_ssd1315_send_command(addr, (uint8_t) (0xB0 | page)) != ESP_OK) {
+            return ESP_FAIL;
+        }
+        // Set starting column with panel-specific offset
+        uint8_t col_low = (uint8_t) (0x00 | (OLED72_COL_OFFSET & 0x0F));
+        uint8_t col_high = (uint8_t) (0x10 | ((OLED72_COL_OFFSET >> 4) & 0x0F));
+        if (oled_ssd1315_send_command(addr, col_low) != ESP_OK) {
+            // column low
+            return ESP_FAIL;
+        }
+        if (oled_ssd1315_send_command(addr, col_high) != ESP_OK) {
+            // column high
+            return ESP_FAIL;
+        }
+
+        const uint8_t *row = &oled72_buffer[(size_t) page * OLED72_WIDTH];
+        uint8_t remaining = OLED72_WIDTH;
+        uint8_t col = 0;
+
+        while (remaining > 0) {
+            uint8_t chunk = remaining > 16 ? 16 : remaining;
+            uint8_t buf[1 + 16];
+            buf[0] = 0x40; // data control byte
+            for (uint8_t i = 0; i < chunk; ++i) {
+                buf[1 + i] = row[col + i];
+            }
+            if (i2c_helper_write_bytes(addr, buf, (size_t) (1 + chunk)) != ESP_OK) {
+                return ESP_FAIL;
+            }
+            remaining -= chunk;
+            col += chunk;
+        }
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t i2c_helper_oled_ensure_init(void) {
+    if (s_oled_initialized) {
+        return ESP_OK;
+    }
+
+    const uint8_t candidates[] = {
+        I2C_HELPER_OLED_ADDR_PRIMARY,
+        I2C_HELPER_OLED_ADDR_SECONDARY
+    };
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        esp_err_t ret = oled_ssd1315_init_72x40(addr);
+        if (ret == ESP_OK) {
+            s_oled_initialized = true;
+            s_oled_addr = addr;
+            ESP_LOGI(GET_AUTO_TAG(), "OLED (SSD1315 72x40) initialized at 0x%02X", addr);
+            return ESP_OK;
+        }
+        ESP_LOGW(GET_AUTO_TAG(),
+                 "OLED (SSD1315) failed to init at 0x%02X (err=%d)", addr, (int) ret);
+    }
+
+    return ESP_FAIL;
+}
+
+esp_err_t i2c_helper_oled_show_int64(int64_t value) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "OLED: failed to init I2C master");
+        return ESP_FAIL;
+    }
+
+    if (i2c_helper_oled_ensure_init() != ESP_OK) {
+        ESP_LOGW(GET_AUTO_TAG(), "OLED: no display found");
+        return ESP_FAIL;
+    }
+
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%lld", (long long) value);
+
+    oled72_buf_clear(false);
+    oled72_draw_number_string(0, 0, buf);
+
+    if (oled72_flush(s_oled_addr) != ESP_OK) {
+        ESP_LOGW(GET_AUTO_TAG(), "OLED: flush failed");
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
+void i2c_helper_test_oled(void) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "OLED: failed to init I2C master");
+        return;
+    }
+
+    const uint8_t candidates[] = {
+        I2C_HELPER_OLED_ADDR_PRIMARY,
+        I2C_HELPER_OLED_ADDR_SECONDARY
+    };
+
+    bool ok = false;
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        esp_err_t ret = oled_ssd1315_init_72x40(addr);
+        if (ret != ESP_OK) {
+            ESP_LOGW(GET_AUTO_TAG(),
+                     "OLED (SSD1315) failed to init at 0x%02X (err=%d)", addr, (int) ret);
+            continue;
+        }
+
+        ESP_LOGI(GET_AUTO_TAG(),
+                 "OLED (SSD1315 72x40) initialized at 0x%02X, toggling \"AAA\" / \"BBB\"",
+                 addr);
+        ok = true;
+        s_oled_initialized = true;
+        s_oled_addr = addr;
+
+        bool show_aaa = true;
+        oled72_buf_clear(false);
+        oled72_draw_string_AAA(0, 0);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        oled72_draw_string_BBB(0, 0);
+
+        if (oled72_flush(addr) != ESP_OK) {
+            ESP_LOGW(GET_AUTO_TAG(), "OLED: flush failed, stopping toggle loop");
+            break;
+        }
+    }
+
+    if (!ok) {
+        ESP_LOGW(GET_AUTO_TAG(), "OLED (SSD1315) did not respond at 0x%02X or 0x%02X",
+                 I2C_HELPER_OLED_ADDR_PRIMARY, I2C_HELPER_OLED_ADDR_SECONDARY);
+    }
+
+    i2c_helper_master_teardown();
+}
+
+static esp_err_t mcp4725_write_fast(uint8_t addr, uint16_t value) {
+    uint8_t buf[2];
+
+    value &= 0x0FFF; // 12-bit DAC
+    // Fast mode: 2nd byte = 0 0 PD1 PD0 D11 D10 D9 D8 (PD1=PD0=0)
+    buf[0] = (uint8_t) ((value >> 8) & 0x0F);
+    // 3rd byte = D7..D0
+    buf[1] = (uint8_t) (value & 0xFF);
+
+    return i2c_helper_write_bytes(addr, buf, sizeof(buf));
+}
+
+void i2c_helper_test_mcp4725(void) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "MCP4725: failed to init I2C master");
+        return;
+    }
+
+    const uint8_t candidates[] = {I2C_HELPER_MCP4725_ADDR0, I2C_HELPER_MCP4725_ADDR1};
+    bool ok = false;
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        // Set DAC to mid-scale (about half of Vref)
+        esp_err_t ret = mcp4725_write_fast(addr, 0x0800);
+        if (ret == ESP_OK) {
+            ESP_LOGI(GET_AUTO_TAG(), "MCP4725 responded at 0x%02X (set ~mid-scale output)", addr);
+            ok = true;
+            break;
+        }
+    }
+
+    if (!ok) {
+        ESP_LOGW(GET_AUTO_TAG(), "MCP4725 did not respond at 0x%02X or 0x%02X", I2C_HELPER_MCP4725_ADDR0, I2C_HELPER_MCP4725_ADDR1);
+    }
+
+    i2c_helper_master_teardown();
+}
+
+esp_err_t i2c_helper_mcp4725_set_code(uint16_t code) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "MCP4725: failed to init I2C master");
+        return ESP_FAIL;
+    }
+
+    code &= 0x0FFFu;
+
+    float vref = (float) I2C_HELPER_MCP4725_VREF_MV / 1000.0f;
+    float volts = (vref * (float) code) / 4095.0f;
+
+    const uint8_t candidates[] = {I2C_HELPER_MCP4725_ADDR0, I2C_HELPER_MCP4725_ADDR1};
+    esp_err_t last_err = ESP_FAIL;
+    bool ok = false;
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        esp_err_t ret = mcp4725_write_fast(addr, code);
+        last_err = ret;
+        if (ret == ESP_OK) {
+            ESP_LOGI(GET_AUTO_TAG(),
+                     "MCP4725 set code=0x%03X (~%.3f V) at 0x%02X (Vref=%.3f V)",
+                     (unsigned) code, volts, addr, vref);
+            ok = true;
+            break;
+        }
+    }
+
+    if (!ok) {
+        ESP_LOGW(GET_AUTO_TAG(),
+                 "MCP4725 failed to set raw code=0x%03X (~%.3f V, Vref=%.3f V)",
+                 (unsigned) code, volts, vref);
+    }
+
+    i2c_helper_master_teardown();
+    return ok ? ESP_OK : last_err;
+}
+
+esp_err_t i2c_helper_mcp4725_set_voltage(float volts) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "MCP4725: failed to init I2C master");
+        return ESP_FAIL;
+    }
+
+    float vref = (float) I2C_HELPER_MCP4725_VREF_MV / 1000.0f;
+    if (volts < 0.0f) {
+        volts = 0.0f;
+    } else if (volts > vref) {
+        volts = vref; // saturate at Vref
+    }
+
+    // Convert desired voltage to 12-bit code:
+    // code = round( volts / vref * 4095 )
+    float ratio = (vref > 0.0f) ? (volts / vref) : 0.0f;
+    if (ratio < 0.0f) ratio = 0.0f;
+    if (ratio > 1.0f) ratio = 1.0f;
+    uint32_t code = (uint32_t) (ratio * 4095.0f + 0.5f);
+    if (code > 0x0FFFu) {
+        code = 0x0FFFu;
+    }
+
+    const uint8_t candidates[] = {I2C_HELPER_MCP4725_ADDR0, I2C_HELPER_MCP4725_ADDR1};
+    esp_err_t last_err = ESP_FAIL;
+    bool ok = false;
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        esp_err_t ret = mcp4725_write_fast(addr, (uint16_t) code);
+        last_err = ret;
+        if (ret == ESP_OK) {
+            ESP_LOGI(GET_AUTO_TAG(),
+                     "MCP4725 set to ~%.3f V at 0x%02X (code=0x%03X, Vref=%.3f V)",
+                     volts, addr, (unsigned) code, vref);
+            ok = true;
+            break;
+        }
+    }
+
+    if (!ok) {
+        ESP_LOGW(GET_AUTO_TAG(),
+                 "MCP4725 failed to set output (requested %.3f V, Vref=%.3f V)",
+                 volts, vref);
+    }
+
+    i2c_helper_master_teardown();
+    return ok ? ESP_OK : last_err;
+}
+
+esp_err_t i2c_helper_mcp4725_set_voltage_mv(uint32_t millivolts) {
+    float volts = (float) millivolts / 1000.0f;
+    return i2c_helper_mcp4725_set_voltage(volts);
+}
+
+
+static esp_err_t i2c_helper_read_accel_xyz(uint8_t addr, int16_t *x, int16_t *y, int16_t *z) {
+    uint8_t xl, xh, yl, yh, zl, zh;
+
+    if (i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_X_L, &xl) != ESP_OK ||
+        i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_X_H, &xh) != ESP_OK ||
+        i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_Y_L, &yl) != ESP_OK ||
+        i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_Y_H, &yh) != ESP_OK ||
+        i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_Z_L, &zl) != ESP_OK ||
+        i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_OUT_Z_H, &zh) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
+    if (x) *x = (int16_t) (((int16_t) xh << 8) | xl);
+    if (y) *y = (int16_t) (((int16_t) yh << 8) | yl);
+    if (z) *z = (int16_t) (((int16_t) zh << 8) | zl);
+
+    return ESP_OK;
+}
+
+static esp_err_t i2c_helper_accel_enable(uint8_t addr) {
+    // Assume IIS3DHHC / LIS2DH-style CTRL1 at 0x20:
+    //  ODR = 100 Hz, all axes enabled (0x57 is common for these parts).
+    esp_err_t ret = i2c_helper_write_reg(addr, I2C_HELPER_ACCEL_REG_CTRL1, 0x57);
+    if (ret == ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(10)); // let ODR/update start
+    }
+    return ret;
+}
+
+void i2c_helper_test_accel(void) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "ACCEL: failed to init I2C master");
+        return;
+    }
+
+    const uint8_t candidates[] = {I2C_HELPER_ACCEL_ADDR_LOW, I2C_HELPER_ACCEL_ADDR_HIGH};
+    bool ok = false;
+    uint8_t found_addr = 0xFF;
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        uint8_t addr = candidates[i];
+        uint8_t who = 0;
+        esp_err_t ret = i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_WHO_AM_I, &who);
+        if (ret == ESP_OK) {
+            ESP_LOGI(GET_AUTO_TAG(),
+                     "ACCEL WHO_AM_I at 0x%02X = 0x%02X (expected 0x%02X for IIS3DHHC-like device)",
+                     addr, who, I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED);
+            if (who == I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED) {
+                ok = true;
+                found_addr = addr;
+                break;
+            }
+        }
+    }
+
+    if (!ok) {
+        ESP_LOGW(GET_AUTO_TAG(),
+                 "ACCEL did not respond with WHO_AM_I=0x%02X at 0x%02X or 0x%02X",
+                 I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED,
+                 I2C_HELPER_ACCEL_ADDR_LOW, I2C_HELPER_ACCEL_ADDR_HIGH);
+    } else {
+        if (i2c_helper_accel_enable(found_addr) == ESP_OK) {
+            int16_t x, y, z;
+            if (i2c_helper_read_accel_xyz(found_addr, &x, &y, &z) == ESP_OK) {
+                ESP_LOGI(GET_AUTO_TAG(),
+                         "ACCEL raw XYZ at 0x%02X: X=%d Y=%d Z=%d",
+                         found_addr, x, y, z);
+            } else {
+                ESP_LOGW(GET_AUTO_TAG(),
+                         "ACCEL: failed to read XYZ data at 0x%02X",
+                         found_addr);
+            }
+        } else {
+            ESP_LOGW(GET_AUTO_TAG(), "ACCEL: failed to configure CTRL1 at 0x%02X",
+                     found_addr);
+        }
+    }
+
+    i2c_helper_master_teardown();
+}
+
+void i2c_helper_log_accel_xyz(void) {
+    i2c_helper_power_on();
+
+    if (i2c_helper_master_setup() != ESP_OK) {
+        ESP_LOGE(GET_AUTO_TAG(), "ACCEL: failed to init I2C master");
+        return;
+    }
+
+    const uint8_t addr = I2C_HELPER_ACCEL_ADDR_LOW;
+    uint8_t who = 0;
+    if (i2c_helper_read_reg(addr, I2C_HELPER_ACCEL_REG_WHO_AM_I, &who) == ESP_OK &&
+        who == I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED) {
+        if (i2c_helper_accel_enable(addr) == ESP_OK) {
+            int16_t x, y, z;
+            if (i2c_helper_read_accel_xyz(addr, &x, &y, &z) == ESP_OK) {
+                ESP_LOGI(GET_AUTO_TAG(),
+                         "ACCEL raw XYZ (single-shot) at 0x%02X: X=%d Y=%d Z=%d",
+                         addr, x, y, z);
+            } else {
+                ESP_LOGW(GET_AUTO_TAG(), "ACCEL: failed to read XYZ data at 0x%02X",
+                         addr);
+            }
+        } else {
+            ESP_LOGW(GET_AUTO_TAG(), "ACCEL: failed to configure CTRL1 at 0x%02X",
+                     addr);
+        }
+    } else {
+        ESP_LOGW(GET_AUTO_TAG(),
+                 "ACCEL: WHO_AM_I mismatch or read error at 0x%02X (got 0x%02X, expected 0x%02X)",
+                 addr, who, I2C_HELPER_ACCEL_WHO_AM_I_EXPECTED);
+    }
+
+    i2c_helper_master_teardown();
+}
+
+void i2c_helper_test_all(void) {
+    ESP_LOGI(GET_AUTO_TAG(), "I2C: starting scan and device tests");
+
+    i2c_helper_scan_devices();
+    i2c_helper_test_oled();
+    i2c_helper_test_mcp4725();
+    i2c_helper_test_accel();
+
+    ESP_LOGI(GET_AUTO_TAG(), "I2C: scan and tests finished");
+}
+ 
+int read_gpio_input(gpio_num_t gpio_num) {
+    // Configure GPIO as input with no pull resistors (high impedance)
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << gpio_num),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+
+    // Read and return the pin state
+    return gpio_get_level(gpio_num);
+}
