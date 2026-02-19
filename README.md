@@ -123,16 +123,16 @@ These were captured with ESP-PPB boards sitting on a desk in a normal room, no s
     <img src="images/single.jpg" alt="Single ESP-PPB node" width="300">
   </a>
   <a href="images/five.jpg">
-    <img src="images/five.jpg" alt="Five ESP-PPB nodes" width="300">
+    <img src="images/back.jpg" alt="Five ESP-PPB nodes" width="300">
   </a>
 </p>
 
 - **Compact**: under 4 cm x 4 cm, 5+ PCB revisions refined
 - **ESP32-C3** with custom RF antenna tuning (2.4 GHz)
-- **VCTCXO** (voltage-controlled temperature-compensated crystal oscillator)
-- **Dual DAC**: coarse + fine control for oscillator discipline
+- **VCTCXO** 0.5ppm voltage-controlled temperature-compensated crystal oscillator
+- **Dual DAC**: 2x12 bits DAC (coarse + fine) control for oscillator discipline
 - **OLED display**: live accuracy and status readout
-- **LiPo battery charger** (USB-C, battery not included), ~8 h runtime with a 1000 mAh battery (120 mA draw)
+- **LiPo battery charger** 8 h runtime with a 1000 mAh battery (120 mA draw, battery not included),
 - **6 exposed GPIOs**: connect your own sensors, actuators, or peripherals (see [Exposed IO](schematics/README.md))
 
 Full schematics, PCB layout, and 3D board model are in [`schematics/`](schematics/).
