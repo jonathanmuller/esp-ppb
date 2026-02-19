@@ -10,13 +10,13 @@
   </a>
 </p>
 
-**ESP-PPB** is the first wireless, battery-powered, phase-coherent CSI synchronization platform for ESP32.
+**ESP-PPB** is the first **distributed, phase‑coherent Wi‑Fi [CSI](https://en.wikipedia.org/wiki/Channel_state_information) platform**. It is also fully open-source, wireless, and battery-powered !
 
-[CSI (Channel State Information)](https://en.wikipedia.org/wiki/Channel_state_information) describes how a Wi-Fi signal propagates between transmitter and receiver, including amplitude and phase per subcarrier. Phase-coherent CSI across multiple nodes enables techniques like angle-of-arrival estimation and distributed beamforming.
+[CSI (Channel State Information)](https://en.wikipedia.org/wiki/Channel_state_information) captures how a Wi-Fi signal travels between transmitter and receiver : amplitude and phase on every subcarrier. With phase-coherent CSI across multiple nodes you can do angle-of-arrival estimation, indoor localization, and distributed wireless sensing.
 
-ESP-PPB phase-locks any number of nodes over the air using Wi-Fi FTM and a VCTCXO disciplined by dual DACs. It achieves sub-PPB clock alignment and near-phase-coherent CSI captures: no cables, no wired backhaul, no tethered power.
+Each ESP-PPB node synchronizes its clock over the air using Wi-Fi FTM and a VCTCXO disciplined by dual DACs, achieving sub-PPB clock alignment and phase-coherent CSI captures.
 
-Drop nodes wherever you need them, power them on, and collect synchronized CSI data on your laptop over Wi-Fi.
+Drop nodes wherever you need them, power them on, and collect synchronized CSI data on your laptop over Wi-Fi, no cables, no wired backhaul, no tethered power.
 
 > **Looking for hardware?** A Crowd Supply campaign is planned. In the meantime, early boards are available directly, see [Get Hardware](#get-hardware) below.
 
