@@ -40,13 +40,36 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 
 ---
 
-## What You Can Do With It
+## What you can do with it
 
-- **Angle-of-arrival estimation**: place nodes around a room, triangulate sources
-- **MUSIC / ESPRIT** and other super-resolution direction-finding algorithms
-- **Multi-node phase-coherent CSI capture**: distributed virtual array
-- **Distributed wireless sensing**: synchronized, cable-free, battery-powered nodes
-- **Indoor localization research**: deploy and relocate freely without cable constraints
+- [**Angle-of-arrival estimation**](https://www.mdpi.com/1424-8220/18/6/1753): place nodes around a room, triangulate sources
+- [**MUSIC**](https://en.wikipedia.org/wiki/MUSIC_(algorithm)) / [**ESPRIT**](https://en.wikipedia.org/wiki/Estimation_of_signal_parameters_via_rotational_invariance_techniques): super-resolution direction-finding algorithms
+- [**Multi-node phase-coherent CSI capture**](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9217431): build a distributed virtual array
+- [**Distributed wireless sensing**](https://www.researchgate.net/profile/Yuval-Amizur/publication/273443111_Next_Generation_Indoor_Positioning_System_Based_on_WiFi_Time_of_Flight/links/5798ddd508aec89db7bb883a/Next-Generation-Indoor-Positioning-System-Based-on-WiFi-Time-of-Flight.pdf): synchronized, cable-free, battery-powered nodes
+- [**Indoor localization**](https://www.academia.edu/download/35783892/3_CSI-based_Indoor_Localization_TPDS.pdf): deploy and relocate freely without cable constraints
+- [**Phase-coherent WiFi sensing**](https://ieeexplore.ieee.org/document/10739065/): see also ESPARGOS, a wired ESP32-based CSI array
+
+Wireless phase-coherent CSI is largely uncharted territory. Most existing research assumes wired synchronization. If you're looking for a paper topic, this is it.
+
+### Examples
+
+These were captured with ESP-PPB boards sitting on a desk in a normal room, no shielding, no lab equipment. This is the kind of data you get out of the box.
+
+<p align="center">
+  <a href="images/angle_of_arrival_matrices.png">
+    <img src="images/angle_of_arrival_matrices.png" alt="Angle of arrival matrices" width="600">
+  </a>
+</p>
+
+**Angle-of-arrival matrices across scenarios.** Each heatmap shows the pairwise CSI phase difference between four ESP-PPB nodes (TOP, BOTTOM, RIGHT, LEFT) for a different physical setup: reference (no obstruction), paper placed behind/below/between nodes, and a hand in the middle. The phase pattern changes visibly with each scenario, showing that the nodes can detect the presence and position of objects.
+
+<p align="center">
+  <a href="images/aoa.png">
+    <img src="images/aoa.png" alt="CSI angle per carrier" width="480">
+  </a>
+</p>
+
+**CSI phase per subcarrier across four synchronized nodes.** The top plot shows the raw phase angle for each node across all 52 OFDM subcarriers. The bottom plot shows the phase difference relative to the TOP node, demonstrating stable, flat phase offsets between nodes, which is the foundation for angle-of-arrival estimation.
 
 ---
 
@@ -84,14 +107,12 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 
 ## Synchronization Accuracy
 
-| Metric                          | Value                                   |
-|---------------------------------|-----------------------------------------|
-| Clock alignment                 | Sub-PPB (parts per billion)             |
-| Theoretical phase accuracy      | < 1 degree per CSI frame                |
-| Practical single-frame accuracy | ~5 degrees (without averaging)          |
-| Time to 10 PPB lock             | Seconds                                 |
-| Time to < 1 PPB lock            | Minutes (thermal stabilization needed)  |
-| Battery life                    | ~8 h with 1000 mAh battery (120 mA draw) |
+| Metric                     | Best case (lab) | Typical (real world)                  |
+|----------------------------|-----------------|---------------------------------------|
+| Clock alignment            | < 0.1 PPB       | ~1 PPB                                |
+| Single-frame phase accuracy | < 1 degree      | < 10 degrees                          |
+| Time to 10 PPB lock        | Instant          | Seconds                               |
+| Time to < 1 PPB lock       | Seconds          | Minutes (needs thermal stability)     |
 
 ---
 
@@ -121,24 +142,18 @@ Synchronized CSI data collected from multiple ESP-PPB nodes. Each node broadcast
 - **VCTCXO** (voltage-controlled temperature-compensated crystal oscillator)
 - **Dual DAC**: coarse + fine control for oscillator discipline
 - **OLED display**: live accuracy and status readout
-- **LiPo battery charger** (USB-C, battery not included)
+- **LiPo battery charger** (USB-C, battery not included), ~8 h runtime with a 1000 mAh battery (120 mA draw)
 - **6 exposed GPIOs**: connect your own sensors, actuators, or peripherals (see [Exposed IO](schematics/README.md))
 
 Full schematics, PCB layout, and 3D board model are in [`schematics/`](schematics/).
 
----
-
-## Deployment
-
-**Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes.
-
-**Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop.
-
-Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
+**Limitations:** each node has a single antenna, so spatial diversity requires multiple nodes.
 
 ---
 
 ## Quick Start
+
+**Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes. **Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop. Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
 
 ### Build and Flash
 
@@ -206,21 +221,6 @@ The design files are in [`schematics/`](schematics/) if you want to build your o
 
 ---
 
-## Roadmap
-
-### Progress
-
-- [x] First prototype
-- [x] Prototype validation
-- [x] Multi-revision PCB refinement (5+ revisions)
-- [x] Sub-PPB synchronization demonstrated
-- [x] Multi-node deployment tested (5+ nodes)
-- [x] Open source firmware release
-- [ ] **Early production** ← *you are here*
-- [ ] Crowd Supply campaign
-- [ ] Python post-processing examples (AoA, MUSIC)
-- [ ] Extended documentation and tutorials
-
 ## FAQ
 
 <details>
@@ -250,6 +250,21 @@ There is no hard limit. The system has been tested with more than 5 nodes. Add a
 ESP-IDF v5.x works. v6.0 is also supported.
 
 </details>
+
+---
+
+## Roadmap
+
+- [x] First prototype
+- [x] Prototype validation
+- [x] Multi-revision PCB refinement (5+ revisions)
+- [x] Sub-PPB synchronization demonstrated
+- [x] Multi-node deployment tested (5+ nodes)
+- [x] Open source firmware release
+- [ ] **Early production** ← *you are here*
+- [ ] Crowd Supply campaign
+- [ ] Python post-processing examples (AoA, MUSIC)
+- [ ] Extended documentation and tutorials
 
 ---
 

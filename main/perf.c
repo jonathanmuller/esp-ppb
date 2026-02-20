@@ -301,6 +301,21 @@ void print_now_recv(const esp_now_recv_info_t *esp_now_info, const uint8_t *data
     struct dual_csi_and_time *recv_ping_pong = (struct dual_csi_and_time *) data;
     // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/wifi.html#wi-fi-channel-state-information
 
+    /*
+    For this specific config : (see wifi_tx_rate_config_t of heéper_init.c)
+    Channel
+        Secondary channel = none
+    Packet info
+        Signal mode : HT
+        Bandwidth : 20mhz
+        STBC : non-STBC
+    Sub-carrier index
+        LLTF : 0->31, -32->-1
+        HT-LTF : 0->31, -32-> 1
+        STBC-HT-LTF : /
+    Total bytes : 256
+    */
+
 
     for (int i = 64; i < 128; i += 2) {
         if ((recv_ping_pong->request.csi_buf[i] == 0) && (recv_ping_pong->request.csi_buf[i + 1]) == 0) {
@@ -315,10 +330,10 @@ void print_now_recv(const esp_now_recv_info_t *esp_now_info, const uint8_t *data
         break;
     }
 
-    /*
+
     printf("Angles : ");
     int8_t *ptr = recv_ping_pong->request.csi_buf;
-    for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < 1; j++) {
         for (int i = 0; i < 32; i++) {
             printf("%1.3f ", atan2(ptr[32 * 2 + i * 2], ptr[32 * 2 + i * 2 + 1]));
         }
@@ -328,7 +343,6 @@ void print_now_recv(const esp_now_recv_info_t *esp_now_info, const uint8_t *data
         printf("\n");
         ptr = recv_ping_pong->response.csi_buf;
     }
-    */
 }
 
 
