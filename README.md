@@ -107,22 +107,12 @@ These were captured with ESP-PPB boards sitting on a desk in a normal room, no s
 
 ## Synchronization Accuracy
 
-| Metric                     | Best case (lab) | Typical (real world)                  |
-|----------------------------|-----------------|---------------------------------------|
-| Clock alignment            | < 0.1 PPB       | ~1 PPB                                |
-| Single-frame phase accuracy | < 1 degree      | < 10 degrees                          |
-| Time to 10 PPB lock        | Instant          | Seconds                               |
-| Time to < 1 PPB lock       | Seconds          | Minutes (needs thermal stability)     |
-
----
-
-## Results
-
-Synchronized CSI data collected from multiple ESP-PPB nodes. Each node broadcasts its CSI frames over Wi-Fi; the listener collects and logs them for post-processing.
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!! TODO: Add example output (serial log snippet, CSV, or plot here)  !!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+| Metric                      | Best case (lab) | Typical (real world)              |
+|-----------------------------|-----------------|-----------------------------------|
+| Clock alignment             | < 0.1 PPB       | ~1 PPB                            |
+| Single-frame phase accuracy | < 1 degree      | < 10 degrees                      |
+| Time to 10 PPB lock         | Instant         | Seconds                           |
+| Time to < 1 PPB lock        | Seconds         | Minutes (needs thermal stability) |
 
 ---
 
@@ -210,8 +200,8 @@ The design files are in [`schematics/`](schematics/) if you want to build your o
 
 > **This project thrives on early feedback.** Whether you're a researcher, engineer, or hobbyist, your input shapes the next revision.
 
-| # | How to contribute                                             |
-|---|---------------------------------------------------------------|
+| # | How to contribute                                            |
+|---|--------------------------------------------------------------|
 | 1 | **Try it**: request a board and test in your environment     |
 | 2 | **Report**: share results, bugs, or calibration observations |
 | 3 | **Suggest**: propose new use cases or features               |
