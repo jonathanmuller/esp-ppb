@@ -1,5 +1,6 @@
 /build/
 /cmake-build-debug/
+main/build/
 /log/
 /partition_table/
 /.vscode/

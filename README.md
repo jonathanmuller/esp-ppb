@@ -2,7 +2,7 @@
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--C3-green)
 ![Status](https://img.shields.io/badge/Status-Pre--Production-orange)
-![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Coming_Soon-purple)
+![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Applying-blue)
 
 <p align="center">
   <a href="images/five.jpg">
@@ -18,7 +18,8 @@ Each ESP-PPB node synchronizes its clock over the air using Wi-Fi FTM and a VCTC
 
 Drop nodes wherever you need them, power them on, and collect synchronized CSI data on your laptop over Wi-Fi, no cables, no wired backhaul, no tethered power.
 
-> **Looking for hardware?** A Crowd Supply campaign is planned. In the meantime, early boards are available directly, see [Get Hardware](#get-hardware) below.
+
+> **Looking for hardware?** A Crowd Supply application is planned. See the [Get Hardware](#get-hardware) section to join the interest list.
 
 ---
 
@@ -51,9 +52,9 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 
 Wireless phase-coherent CSI is largely uncharted territory. Most existing research assumes wired synchronization. If you're looking for a paper topic, this is it.
 
-### Examples
+### Current State
 
-These were captured with ESP-PPB boards sitting on a desk in a normal room, no shielding, no lab equipment. This is the kind of data you get out of the box.
+ESP-PPB is working end-to-end: synchronization is stable at the PPB level, multi-node phase-coherent CSI capture works, and angle-of-arrival testing is functional. Below is an example/demo captured with ESP-PPB boards sitting on a desk in a normal room, no shielding, no lab equipment. This is the kind of data you get out of the box.
 
 <p align="center">
   <a href="images/angle_of_arrival_matrices.png">
@@ -137,11 +138,18 @@ These were captured with ESP-PPB boards sitting on a desk in a normal room, no s
 
 Full schematics, PCB layout, and 3D board model are in [`schematics/`](schematics/).
 
-**Limitations:** each node has a single antenna, so spatial diversity requires multiple nodes.
+Production files (BOM, Gerbers, pick-and-place, schematic PDF, and source archives) are in
+[`schematics/production/`](schematics/production/).
+
+**Limitations:** each node has a single antenna, so spatial diversity requires multiple nodes. The ESP32-C3FH4 is not FCC/CE certified — this product is intended for laboratory and research use.
 
 ---
 
 ## Quick Start
+
+If you want to build the hardware yourself, start here:
+
+- [`BUILD_IT_YOURSELF.md`](BUILD_IT_YOURSELF.md)
 
 **Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes. **Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop. Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
 
@@ -188,9 +196,9 @@ Edit [`main/helper.h`](main/helper.h) and set `MAC_STA_RIGHT` / `MAC_STA_TOP` / 
 
 ## Get Hardware
 
-**Early boards are available now.** A larger batch and a Crowd Supply campaign are planned. Early interest helps reserve boards at lower cost.
+**Join the interest list for updates.** Email **`jonathan.muller12@gmail.com`** with subject **`ESP-PPB interest`** and include your country, intended use, and quantity.
 
-Contact: **`jonathan.muller12@gmail.com`** or [open a discussion](../../discussions).
+You can also [open a discussion](../../discussions).
 
 The design files are in [`schematics/`](schematics/) if you want to build your own, but I recommend ordering assembled boards unless you are experienced with RF PCB design and antenna tuning.
 
@@ -309,7 +317,7 @@ Each node selects its role at boot based on its MAC address (`main/main.c`). The
 | Component             | License                             |
 |-----------------------|-------------------------------------|
 | Firmware / software   | [GPL-3.0](LICENSE)                  |
-| Hardware design files | [CC-BY-NC-SA-4.0](HARDWARE_LICENSE) |
+| Hardware design files | [CERN-OHL-S-2.0](HARDWARE_LICENSE) |
 
 </details>
 
