@@ -145,52 +145,11 @@ Production files (BOM, Gerbers, pick-and-place, schematic PDF, and source archiv
 
 ---
 
-## Quick Start
-
-If you want to build the hardware yourself, start here:
-
-- [`BUILD_IT_YOURSELF.md`](BUILD_IT_YOURSELF.md)
+## Getting Started
 
 **Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes. **Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop. Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
 
-### Build and Flash
-
-**Hardware:**
-
-- At least 3 ESP-PPB boards
-- Optional: a LiPo battery (PH2.0 - 2P plug) :warning: Watch the polarity. The `bat+` label on the board marks the positive side of the battery. This battery is compatible, for example: [AliExpress option](https://de.aliexpress.com/item/1005008790388830.html?spm=a2g0o.order_list.order_list_main.37.40f35e5b8iBkc5&gatewayAdapt=glo2deu)
-- Make sure the switch on your ESP-PPB is set to `battery` or `5V`, depending on whether you are using a battery
-
-**Software:**
-
-- [Espressif ESP32 tutorial](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html)
-
-**Flash for the first time:**
-
-```bash
-. $IDF_PATH/export.sh
-idf.py build
-idf.py -p /dev/ttyUSB0 flash monitor
-```
-
-When the device boots, note its STA MAC address:
-
-```
-2026-02-20 08:26:31 I (786) [./main/helper.c:74] [MIDDLE]: STA MAC is {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-```
-
-Edit [`main/helper.h`](main/helper.h) and set `MAC_STA_RIGHT` / `MAC_STA_TOP` / `MAC_STA_MIDDLE` / ... depending on your need (see the [Roles](#roles) section below).
-
-### Key files
-
-| File                 | Purpose                                |
-|----------------------|----------------------------------------|
-| `main/main.c`        | Entry point and role selection         |
-| `main/helper_init.c` | Wi-Fi init, CSI, promiscuous mode      |
-| `main/perf.c`        | FTM table, PPB slope, DAC correction   |
-| `main/i2c_helper.c`  | OLED + DAC + I2C utilities             |
-| `main/constant.h`    | Channel, SSID, and protocol constants  |
-| `hack_struct.patch`  | IDF patch for nanosecond RX timestamps |
+> **Want to flash and run?** See [`BUILD_IT_YOURSELF.md`](BUILD_IT_YOURSELF.md) for the full setup guide.
 
 ---
 
@@ -304,6 +263,17 @@ Each node selects its role at boot based on its MAC address (`main/main.c`). The
 6. Register callbacks (promiscuous, CSI, ESP-NOW)
 7. Enter main loop (if any)
 ```
+
+### Key files
+
+| File                 | Purpose                                |
+|----------------------|----------------------------------------|
+| `main/main.c`        | Entry point and role selection         |
+| `main/helper_init.c` | Wi-Fi init, CSI, promiscuous mode      |
+| `main/perf.c`        | FTM table, PPB slope, DAC correction   |
+| `main/i2c_helper.c`  | OLED + DAC + I2C utilities             |
+| `main/constant.h`    | Channel, SSID, and protocol constants  |
+| `hack_struct.patch`  | IDF patch for nanosecond RX timestamps |
 
 </details>
 

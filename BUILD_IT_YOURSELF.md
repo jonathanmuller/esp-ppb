@@ -6,7 +6,7 @@ This guide targets labs, hobbyists, and anyone who wants to build and run ESP-PP
 
 - At least 3 ESP-PPB boards (recommended: 5 nodes + 1 listener)
 - USB-C cable(s)
-- Optional: LiPo battery (PH2.0 - 2P), see the battery note below
+- Optional: LiPo battery (PH2.0 - 2P plug) — :warning: watch the polarity, the `bat+` label on the board marks the positive side. Compatible example: [AliExpress option](https://de.aliexpress.com/item/1005008790388830.html?spm=a2g0o.order_list.order_list_main.37.40f35e5b8iBkc5&gatewayAdapt=glo2deu)
 - No special tools required
 
 ## Software Prerequisites
@@ -56,7 +56,7 @@ Set `MAC_STA_LEFT`, `MAC_STA_RIGHT`, `MAC_STA_TOP`, `MAC_STA_BOTTOM`, and `MAC_S
 Suggested setup:
 
 - 5 ESP-PPB nodes: `LEFT`, `RIGHT`, `TOP`, `BOTTOM`, `MIDDLE`
-- 1 listener node (any ESP32 is fine, ESP32-C3 is prefered for simplicity of code/compilation) to receive broadcasts
+- 1 listener node (any ESP32 is fine, ESP32-C3 is preferred for simplicity of code/compilation) to receive broadcasts
 
 The listener is the `default` role in [`main/main.c`](main/main.c) and prints received frames to the console.
 The current output format is implemented in [`main/perf.c`](main/perf.c) (`print_now_recv`), including
