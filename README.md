@@ -1,13 +1,16 @@
-# ESP-PPB
+# ESP-PPB : 1-PPB wireless sync for phase coherent Wi-Fi CSI
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--C3-green)
 ![Status](https://img.shields.io/badge/Status-Pre--Production-orange)
 ![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Applying-blue)
 
 <p align="center">
-  <a href="images/five.jpg">
-    <img src="images/five.jpg" alt="Five ESP-PPB nodes" width="520">
+  <a href="https://vimeo.com/1168803843" title="Watch the ESP-PPB video on Vimeo">
+    <img src="images/five.jpg" alt="ESP-PPB video — click to watch on Vimeo" width="520">
   </a>
+</p>
+<p align="center">
+  <strong><span style="font-size:1.1em;">▶ Watch the presentation video</span></strong>
 </p>
 
 **ESP-PPB** is the first **distributed, phase‑coherent Wi‑Fi [CSI](https://en.wikipedia.org/wiki/Channel_state_information) platform**. It is also fully open-source, wireless, and battery-powered !
@@ -100,8 +103,9 @@ ESP-PPB is working end-to-end: synchronization is stable at the PPB level, multi
 1. **One node acts as the AP / FTM responder** (the master clock).
 2. Slave nodes initiate FTM exchanges every few hundred milliseconds (configurable).
 3. A small IDF hack enables **nanosecond-level RX timestamps** via promiscuous mode.
-4. Each slave estimates its clock drift (PPB slope) and corrects its **VCTCXO via dual DACs** (coarse + fine).
-5. Once phase-locked, slaves exchange CSI with the AP and **broadcast results over Wi-Fi**.
+4. Each slave estimates its clock drift VS master (PPB slope) and corrects its **VCTCXO via dual DACs** (coarse + fine).
+5. Everytime an (external) CSI frame is seen, AP send a **reference** frame 1ms later.
+5. Slave records both external and reference CSI and **broadcast results over Wi-Fi**
 6. Any listener (a cheap ESP32 connected to a PC) collects the data for post-processing.
 
 ---
@@ -147,7 +151,13 @@ Production files (BOM, Gerbers, pick-and-place, schematic PDF, and source archiv
 
 ## Getting Started
 
-**Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes. **Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop. Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
+**Minimum setup:** 1 master (AP) + 2 slaves = 3 nodes.
+
+**Typical setup:** 1 master + 4 slaves, with a listener ESP32 connected to a laptop.
+
+Nodes auto-detect their role based on MAC address (configurable in firmware). Power them on and they synchronize automatically.
+
+Get the CSI (external + reference) from the the serial of the laptop connected ESP32 and start processing !
 
 > **Want to flash and run?** See [`BUILD_IT_YOURSELF.md`](BUILD_IT_YOURSELF.md) for the full setup guide.
 
@@ -284,9 +294,9 @@ Each node selects its role at boot based on its MAC address (`main/main.c`). The
 <details>
 <summary>Details</summary>
 
-| Component             | License                             |
-|-----------------------|-------------------------------------|
-| Firmware / software   | [GPL-3.0](LICENSE)                  |
+| Component             | License                            |
+|-----------------------|------------------------------------|
+| Firmware / software   | [GPL-3.0](LICENSE)                 |
 | Hardware design files | [CERN-OHL-S-2.0](HARDWARE_LICENSE) |
 
 </details>

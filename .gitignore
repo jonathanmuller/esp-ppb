@@ -1,6 +1,7 @@
 /build/
 /cmake-build-debug/
 main/build/
+/video/
 /log/
 /partition_table/
 /.vscode/

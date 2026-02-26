@@ -89,3 +89,7 @@ This design has been tested with 10+ nodes.
 - LED is red: set the power switch to `USB` if you do not have a battery connected.
 - ESP-PPB acts as emitter: its MAC address was not assigned to a role in [`main/helper.h`](main/helper.h).
 - Angle-of-arrival looks random: you did not account for the sync frame; all angles are relative to the sync frame.
+
+## Certification
+
+- The PCB antenna was tunned and verified working with a spectrum analyzer, nevertheless it has NOT been certified (yet).
