@@ -62,7 +62,7 @@ Same 10 to 20 ppm clock though, so CSI was still useless.
 <img src="images/history/history_c.jpeg" width="400">
 </td><td>
 
-I had never made a PCB before. I chose EasyEDA because it had a lot of tutorials and seemed the simplest option. I relied entirely on its auto-router.
+I had never made a PCB before. I chose [EasyEDA](https://easyeda.com) (which integrates with [JLCPCB](https://jlcpcb.com)) because it had a lot of tutorials and seemed the simplest option. I relied entirely on its auto-router.
 
 The image you see is actually the Nth board I ordered, because I tried to hand-solder the first ones and completely botched them. I then switched to putting a bit of solder paste on each pad and using a cheap Chinese hot plate. That worked beautifully: just place components under a microscope, heat, done. Way better than hand soldering, especially for the ground pad under the ESP32-WROOM which is impossible to reach with an iron.
 
@@ -79,6 +79,8 @@ Same clock, same results. No improvement on CSI.
 <table><tr><td width="400">
 <img src="images/history/history_d.jpeg" width="400">
 </td><td>
+
+From this board on, all boards were assembled by [JLCPCB](https://jlcpcb.com). It took me so long to solder the previous ones that I didn't want to do it again, especially with smaller components and more of them. Worth every penny for my sanity.
 
 The simplest idea seemed to be sharing a single 40 MHz clock across multiple ESP32 boards via jumper wires. You can see the clock output has many jumper headers to connect to other boards, and each board has a single header for clock input.
 
@@ -125,6 +127,8 @@ The SMA cable was even worse than jumper wires. The coax capacitance was enormou
 </td><td>
 
 I had just wasted an expensive board and this project was getting costly. Each revision cost more than the last. So I really wanted this one to work, and to take as little risk as possible.
+
+I was still relying on EasyEDA's auto-router, and it was a pain. This was the last board where I used it. For every board after this one I did painful manual routing, and it was absolutely worth it.
 
 The idea: stop trying to share a clock over cables. Instead, put two ESP32 chips on the same PCB with a single TCXO placed as physically close as possible. You can see on the image that it's really *as close as possible*. Minimal trace length, no cables, no connectors.
 
@@ -181,7 +185,7 @@ All 4 ESP32s ran, but same antenna problems (2-layer, can't transmit), and the c
 <img src="images/history/history_i.jpeg" width="400">
 </td><td>
 
-Time to do it right. 4-layer PCB, properly calculated antenna matching using [JLCPCB's impedance calculator](https://jlcpcb.com/pcb-impedance-calculator), decoupled power (each ESP32 has its own regulator, only 5V is shared on the middle section you can see), and antennas protruding beyond the board edge.
+Time to do it right. 4-layer PCB from JLCPCB, properly calculated antenna matching using [JLCPCB's impedance calculator](https://jlcpcb.com/pcb-impedance-calculator), decoupled power (each ESP32 has its own regulator, only 5V is shared on the middle section you can see), and antennas protruding beyond the board edge.
 
 This is where I finally understood *why* 4 layers matter. On a 2-layer PCB, the distance between the signal trace (L1) and ground (L2) is large, so coupling is loose. The calculator told me I needed about 1 cm clearance between antenna traces and ground on the same layer, which felt absurd. On 4 layers, L1 (signal) and L2 (ground) are very close together, giving tight coupling and sensible trace dimensions. Everything clicked. All 4 ESP32s ran in phase sync.
 
