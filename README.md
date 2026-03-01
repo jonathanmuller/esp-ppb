@@ -2,10 +2,10 @@
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--C3-green)
 ![Status](https://img.shields.io/badge/Status-Pre--Production-orange)
-![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Applying-blue)
+![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Coming_Soon-blue)
 
 <p align="center">
-  <a href="https://vimeo.com/1168803843" title="Watch the ESP-PPB video on Vimeo">
+  <a href="https://youtu.be/1_jBfI8IUyI" title="Watch the ESP-PPB video on Youtube">
     <img src="images/five.jpg" alt="ESP-PPB video — click to watch on Vimeo" width="520">
   </a>
 </p>
@@ -22,7 +22,7 @@ Each ESP-PPB node synchronizes its clock over the air using Wi-Fi FTM and a VCTC
 Drop nodes wherever you need them, power them on, and collect synchronized CSI data on your laptop over Wi-Fi, no cables, no wired backhaul, no tethered power.
 
 
-> **Looking for hardware?** A Crowd Supply application is planned. See the [Get Hardware](#get-hardware) section to join the interest list.
+> **Crowd Supply campaign coming soon!** Email **`jonathan.muller12@gmail.com`** with subject **`ESP-PPB interest`** (include your country, intended use, and quantity) to join the interest list. You can also [open a discussion](https://github.com/jonathanmuller/esp-ppb/discussions).
 
 ---
 
@@ -44,18 +44,7 @@ Existing Wi-Fi CSI platforms either require cables between antennas, need a wire
 
 ---
 
-## What you can do with it
-
-- [**Angle-of-arrival estimation**](https://www.mdpi.com/1424-8220/18/6/1753): place nodes around a room, triangulate sources
-- [**MUSIC**](https://en.wikipedia.org/wiki/MUSIC_(algorithm)) / [**ESPRIT**](https://en.wikipedia.org/wiki/Estimation_of_signal_parameters_via_rotational_invariance_techniques): super-resolution direction-finding algorithms
-- [**Multi-node phase-coherent CSI capture**](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9217431): build a distributed virtual array
-- [**Distributed wireless sensing**](https://www.researchgate.net/profile/Yuval-Amizur/publication/273443111_Next_Generation_Indoor_Positioning_System_Based_on_WiFi_Time_of_Flight/links/5798ddd508aec89db7bb883a/Next-Generation-Indoor-Positioning-System-Based-on-WiFi-Time-of-Flight.pdf): synchronized, cable-free, battery-powered nodes
-- [**Indoor localization**](https://www.academia.edu/download/35783892/3_CSI-based_Indoor_Localization_TPDS.pdf): deploy and relocate freely without cable constraints
-- [**Phase-coherent WiFi sensing**](https://ieeexplore.ieee.org/document/10739065/): see also ESPARGOS, a wired ESP32-based CSI array
-
-Wireless phase-coherent CSI is largely uncharted territory. Most existing research assumes wired synchronization. If you're looking for a paper topic, this is it.
-
-### Current State
+## Current State
 
 ESP-PPB is working end-to-end: synchronization is stable at the PPB level, multi-node phase-coherent CSI capture works, and angle-of-arrival testing is functional. Below is an example/demo captured with ESP-PPB boards sitting on a desk in a normal room, no shielding, no lab equipment. This is the kind of data you get out of the box.
 
@@ -74,6 +63,28 @@ ESP-PPB is working end-to-end: synchronization is stable at the PPB level, multi
 </p>
 
 **CSI phase per subcarrier across four synchronized nodes.** The top plot shows the raw phase angle for each node across all 52 OFDM subcarriers. The bottom plot shows the phase difference relative to the TOP node, demonstrating stable, flat phase offsets between nodes, which is the foundation for angle-of-arrival estimation.
+
+---
+
+## History and Lessons
+
+If you want to save a lot of time and learn the hard-won lessons up front, take a quick look at [`story.md`](story.md). It is a 10-minute read that summarizes the experiments that led to ESP-PPB, the successes, the failures, and most importantly, the lessons.
+
+---
+
+## What you can do with it
+
+- **Angle-of-arrival estimation**: place nodes around a room, triangulate sources
+- **MUSIC / ESPRIT**: super-resolution direction-finding algorithms
+- **Multi-node phase-coherent CSI capture**: build a distributed virtual array
+- **Distributed wireless sensing**: synchronized, cable-free, battery-powered nodes
+- **Indoor localization**: deploy and relocate freely without cable constraints
+- **Phase-coherent WiFi sensing**: see also ESPARGOS, a wired ESP32-based CSI array
+
+Wireless phase-coherent CSI is largely uncharted territory. Most existing research assumes wired synchronization. If you're looking for a paper topic, this is it.
+
+**Further reading:
+** [AoA estimation](https://www.mdpi.com/1424-8220/18/6/1753) | [MUSIC](https://en.wikipedia.org/wiki/MUSIC_(algorithm)) | [ESPRIT](https://en.wikipedia.org/wiki/Estimation_of_signal_parameters_via_rotational_invariance_techniques) | [Phase-coherent CSI](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9217431) | [WiFi ToF](https://www.researchgate.net/profile/Yuval-Amizur/publication/273443111_Next_Generation_Indoor_Positioning_System_Based_on_WiFi_Time_of_Flight/links/5798ddd508aec89db7bb883a/Next-Generation-Indoor-Positioning-System-Based-on-WiFi-Time-of-Flight.pdf) | [CSI localization](https://www.academia.edu/download/35783892/3_CSI-based_Indoor_Localization_TPDS.pdf) | [ESPARGOS](https://ieeexplore.ieee.org/document/10739065/)
 
 ---
 
@@ -161,13 +172,9 @@ Get the CSI (external + reference) from the the serial of the laptop connected E
 
 > **Want to flash and run?** See [`BUILD_IT_YOURSELF.md`](BUILD_IT_YOURSELF.md) for the full setup guide.
 
----
+### Get Hardware
 
-## Get Hardware
-
-**Join the interest list for updates.** Email **`jonathan.muller12@gmail.com`** with subject **`ESP-PPB interest`** and include your country, intended use, and quantity.
-
-You can also [open a discussion](../../discussions).
+**Crowd Supply campaign coming soon.** Email **`jonathan.muller12@gmail.com`** with subject **`ESP-PPB interest`** (include your country, intended use, and quantity) to join the interest list. You can also [open a discussion](https://github.com/jonathanmuller/esp-ppb/discussions).
 
 The design files are in [`schematics/`](schematics/) if you want to build your own, but I recommend ordering assembled boards unless you are experienced with RF PCB design and antenna tuning.
 
@@ -184,7 +191,7 @@ The design files are in [`schematics/`](schematics/) if you want to build your o
 | 3 | **Suggest**: propose new use cases or features               |
 | 4 | **Collaborate**: co-author research, co-develop algorithms   |
 
-[Open a discussion](../../discussions) or email **`jonathan.muller12@gmail.com`**.
+[Open a discussion](https://github.com/jonathanmuller/esp-ppb/discussions) or email **`jonathan.muller12@gmail.com`**.
 
 ---
 
@@ -214,7 +221,7 @@ There is no hard limit. The system has been tested with more than 5 nodes. Add a
 <details>
 <summary>What ESP-IDF version do I need?</summary>
 
-ESP-IDF v5.x works. v6.0 is also supported.
+ESP-IDF 6.0 is required.
 
 </details>
 
