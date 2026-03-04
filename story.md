@@ -228,7 +228,7 @@ the TCXO pair.
 <img src="images/single.jpg" width="400">
 </td><td>
 
-There were a few more boards in between with no significant changes, but the big one was adding a second DAC in a 1:100 ratio (coarse + fine) for sub-ppb VCTCXO control.
+There were a few more boards in between with no significant changes, but the big one was adding a second DAC in a 1:30 ratio (coarse + fine) for sub-ppb VCTCXO control.
 
 The dual-DAC approach broke through the 10 ppb floor. Typical accuracy is about 1 ppb in open air. When placed in a 3D-printed enclosure with stable temperature, it reaches 0.1 ppb, effectively at the measurement limit of the hardware. The ESP32-C3 timestamps at about 1.5 ns resolution: 1 ns over 1 second is 1 ppb, so measuring 0.1 ppb requires 10+ seconds of averaging, at which point Allan deviation becomes the limiting factor. The VCTCXO control loop also compensates for thermal drift, which
 the shared-clock design never could.

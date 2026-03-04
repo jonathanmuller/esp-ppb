@@ -3,6 +3,7 @@
 ![Platform](https://img.shields.io/badge/Platform-ESP32--C3-green)
 ![Status](https://img.shields.io/badge/Status-Pre--Production-orange)
 ![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Coming_Soon-blue)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github)](https://github.com/sponsors/jonathanmuller)
 
 <p align="center">
   <a href="https://youtu.be/1_jBfI8IUyI" title="Watch the ESP-PPB video on Youtube">
